@@ -77,6 +77,11 @@ from .utils import (
 )
 
 
+@torch.compiler.nested_compile_region(is_pure=True)
+def _call_decoder_layer_pure(layer, positions, hidden_states, residual):
+    return layer(positions, hidden_states, residual)
+
+
 class LlamaMLP(nn.Module):
     def __init__(
         self,
@@ -423,9 +428,14 @@ class LlamaModel(nn.Module):
         ):
             if idx in self.aux_hidden_state_layers:
                 aux_hidden_states.append(hidden_states + residual)
-            hidden_states, residual = layer(
-                positions, hidden_states, residual, **extra_layer_kwargs
-            )
+            if residual is not None and not extra_layer_kwargs:
+                hidden_states, residual = _call_decoder_layer_pure(
+                    layer, positions, hidden_states, residual
+                )
+            else:
+                hidden_states, residual = layer(
+                    positions, hidden_states, residual, **extra_layer_kwargs
+                )
 
         if not get_pp_group().is_last_rank:
             return IntermediateTensors(

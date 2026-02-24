@@ -520,6 +520,12 @@ def _support_torch_compile(
             # if the config doesn't exist
             logger.debug("enable_cpp_symbolic_shape_guards config not available")
 
+        try:
+            _ = torch._dynamo.config.inline_invoke_subgraph
+            dynamo_config_patches["inline_invoke_subgraph"] = True
+        except AttributeError:
+            logger.debug("inline_invoke_subgraph config not available")
+
         # Prepare backed_size_oblivious config patch if needed
         fx_config_patches = {}
         if ds_type == DynamicShapesType.BACKED_SIZE_OBLIVIOUS:
